@@ -1,0 +1,46 @@
+server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+
+        root /var/www/html;
+
+        index index.php index.html index.htm index.nginx-debian.html;
+        server_name SUBDOMAIN.DOMAIN.TLD;
+
+        location / {
+                # first attempt to serve request as file, then
+                # as directory, then fall back to displaying a 404
+                try_files $uri $uri/ =404;
+        }
+
+        location ~ \.php {
+                include snippets/fastcgi-php.conf;
+
+                fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        }
+
+        location ~ /\.ht {
+                deny all;
+        }
+
+        location ~* wp-config.php {
+                deny all;
+        }
+
+         
+        location = /favicon.ico {
+                log_not_found off;
+                access_log off;
+        }
+
+        location = /robots.txt {
+                allow all;
+                log_not_found off;
+                access_log off;
+        }
+       
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+                 expires max;
+                 log_not_found off;
+         }
+}

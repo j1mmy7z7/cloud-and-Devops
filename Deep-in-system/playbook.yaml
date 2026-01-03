@@ -1,0 +1,446 @@
+- name: Configure Static IP and Verify Internet
+  hosts: kvm_hosts
+  become: true
+  vars:
+    dns_servers: [8.8.8.8, 1.1.1.1]
+
+  tasks:
+    - name: Configure static IP via Netplan
+      copy:
+        dest: "/etc/netplan/50-cloud-init.yaml"
+        content: |
+          network:
+            version: 2
+            renderer: networkd
+            ethernets:
+              {{ device_name }}:
+                dhcp4: no
+                addresses:
+                  - {{ static_ip_cdr }}
+                routes:
+                  - to: default
+                    via: {{ gateway }}
+                nameservers:
+                  addresses: {{ dns_servers }}
+
+    - name: Apply Netplan configuration
+      shell: sleep 2 && netplan apply
+      async: 45
+      poll: 0
+      become: true
+
+    - name: Update ansible_host to new IP for reconnection
+      set_fact:
+        ansible_host: "{{ static_ip }}"
+
+    - name: Wait for connection and accept new host key
+      wait_for_connection:
+        delay: 5
+        timeout: 60
+      vars:
+        ansible_ssh_extra_args: "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+    - name: Test Internet Connectivity
+      shell: ping -c 5 google.com
+      register: ping_result
+      changed_when: false
+
+    - name: Display Ping Results
+      debug:
+        msg: "Internet is reachable! Output: {{ ping_result.stdout }}"
+
+# install ufw for firewall settings
+- name: setup ufw
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: yes
+
+    - name: UFW - Enable and deny by default
+      community.general.ufw:
+        state: enabled
+        default: deny
+
+# add the different users nami, luffy and zoro
+
+- name: add users to the server
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: add luffy
+      ansible.builtin.user:
+        name: "luffy"
+        state: present
+        shell: /bin/bash
+        group: "sudo"
+        password: "{{ luffy_password | password_hash('sha512') }}"
+
+    - name: add zoro
+      ansible.builtin.user:
+        name: "zoro"
+        state: present
+        shell: /bin/bash
+        password: "{{ zoro_password | password_hash('sha512') }}"
+
+    - name: nami
+      ansible.builtin.user:
+        name: "nami"
+        state: present
+        password: "{{ nami_password | password_hash('sha512') }}"
+        shell: /usr/sbin/nologin
+        home: /backup
+
+    - name: ensure no-shell is a valid shell
+      lineinfile:
+        path: /etc/shells
+        line: /usr/sbin/nologin
+        state: present
+
+    - name: Generate an OpenSSH keypair on the local control node
+      community.crypto.openssh_keypair:
+        path: "~/.ssh/ansible_id_ed25519"
+        type: ed25519
+        state: present
+      delegate_to: localhost # Runs this task locally on your computer
+      become: false
+
+    - name: Deploy the public key to the remote server
+      ansible.posix.authorized_key:
+        user: luffy
+        state: present
+        key: "{{ lookup('file', '~/.ssh/ansible_id_ed25519.pub') }}"
+        manage_dir: yes
+
+# install ftp service
+- name: setup ftp
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: install vsftpd
+      ansible.builtin.apt:
+        name: vsftpd
+        state: present
+
+    - name: enable vsftpd
+      ansible.builtin.service:
+        name: vsftpd
+        enabled: true
+
+    - name: start vsftpd
+      ansible.builtin.service:
+        name: vsftpd
+        state: started
+
+    - name: Allow FTP Control Port
+      community.general.ufw:
+        rule: allow
+        port: "21"
+        proto: tcp
+
+    - name: Allow FTP Passive Data Port Range
+      community.general.ufw:
+        rule: allow
+        port: "{{ port_range }}"
+        proto: tcp
+
+    - name: add ftp settings
+      lineinfile:
+        dest: /etc/vsftpd.conf
+        backup: yes
+        state: present
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - { regexp: "^#?anonymous_enable=", line: anonymous_enable=NO }
+        - { regexp: "^#?anon_upload_enable=", line: anon_upload_enable=NO }
+        - {
+            regexp: "^#?anon_mkdir_write_enable=",
+            line: anon_mkdir_write_enable=NO,
+          }
+        - { regexp: "^#?chroot_local_user=", line: "chroot_local_user=YES" }
+        - {
+            regexp: "^#?allow_writeable_chroot=",
+            line: "allow_writeable_chroot=YES",
+          }
+        - { regexp: "^#?local_enable=", line: "local_enable=YES" }
+
+# install mysql server,
+# disable remote login for root
+# disable outside host from conencting to it
+# add a db for wordpress and add a mysql user who has access to the wordpress db
+
+- name: install mysql_server
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: install mysql
+      package:
+        name: "{{ item }}"
+        state: present
+        update_cache: yes
+      loop:
+        - mysql-server
+        - mysql-client
+        - python3-pymysql
+
+    - name: start and enable mysql service
+      ansible.builtin.service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Configure .my.cnf for root authentication
+      copy:
+        dest: "/root/.my.cnf"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          [client]
+          user=root
+          password={{ password }}
+    # - name: disable remote connection by the user
+    #   community.mysql.mysql_query:
+    #     query: DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+    #   notify:
+    #     - flush priv
+
+    - name: Secure the root user (local only)
+      community.mysql.mysql_user:
+        name: root
+        password: "{{ password }}"
+        host: "{{ item }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        state: present
+      loop:
+        - 127.0.0.1
+        - ::1
+        - localhost
+
+    - name: limit access to mysql server to localhost
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: "^bind-address"
+        line: "bind-address = 127.0.0.1"
+        backup: yes
+      notify:
+        - restart mysql
+
+    - name: create a database for wordpress
+      mysql_db:
+        name: "{{ database }}"
+        state: present
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: create user for wordpress database
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_user_password }}"
+        state: present
+        host: "localhost"
+        priv:
+          "{{ database}}.*": "ALL"
+          "*.*": "PROCESS,SELECT,LOCK TABLES,SHOW VIEW"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+  handlers:
+    - name: restart mysql
+      service:
+        name: mysql
+        state: restarted
+
+    - name: flush priv
+      community.mysql.mysql_query:
+        query: FLUSH PRIVILEGES;
+
+# install nginx , php and setup wordpress
+- name: setup nginx and wordpress
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: install nginx and php modules
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - php8.3-cli
+          - php8.3-fpm
+          - php8.3-mysql
+          - php8.3-opcache
+          - php8.3-mbstring
+          - php8.3-xml
+          - php8.3-gd
+          - php8.3-curl
+        state: present
+        update_cache: yes
+
+    - name: Allow HTTP traffic
+      community.general.ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+
+    - name: deploy config
+      ansible.builtin.template:
+        src: settings.txt
+        dest: /etc/nginx/sites-available/wordpress
+      notify: Reload nginx
+
+    - name: Enable WordPress Site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/wordpress
+        dest: /etc/nginx/sites-enabled/wordpress
+        state: link
+    - name: Remove the default Nginx symlink
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
+    - name: download wordpress
+      unarchive:
+        src: https://wordpress.org/latest.tar.gz
+        dest: /var/www/html
+        remote_src: yes
+        owner: www-data
+        group: www-data
+        # --strip-components=1 removes the 'wordpress/' folder layer
+        extra_opts: ["--strip-components=1"]
+
+    - name: Copy sample config to wp-config.php
+      ansible.builtin.copy:
+        src: /var/www/html/wp-config-sample.php
+        dest: /var/www/html/wp-config.php
+        remote_src: yes
+        force: no # Won't overwrite if it already exists
+
+    - name: Update DB Name in wp-config
+      ansible.builtin.lineinfile:
+        path: /var/www/html/wp-config.php
+        regexp: "^define\\( 'DB_NAME', '(.)+' \\);"
+        line: "define( 'DB_NAME', '{{ database }}' );"
+
+    - name: Update DB User in wp-config
+      ansible.builtin.lineinfile:
+        path: /var/www/html/wp-config.php
+        regexp: "^define\\( 'DB_USER', '(.)+' \\);"
+        line: "define( 'DB_USER', '{{ db_user }}' );"
+
+    - name: Update DB Password in wp-config
+      ansible.builtin.lineinfile:
+        path: /var/www/html/wp-config.php
+        regexp: "^define\\( 'DB_PASSWORD', '(.)+' \\);"
+        line: "define( 'DB_PASSWORD', '{{ db_user_password }}' );"
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+
+- name: Full Setup for Root Python Backup
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: Ensure Python 3 is installed
+      ansible.builtin.package:
+        name: python3
+        state: present
+
+    - name: Copy backup script to /root
+      ansible.builtin.copy:
+        src: db_backup.py
+        dest: /root/db_backup.py
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Create the cron job for root
+      ansible.builtin.cron:
+        name: "wordpress db backup"
+        user: root
+        minute: "0"
+        hour: "0"
+        # Using the full path to python3 ensures cron finds it
+        job: "/usr/bin/python3 /root/db_backup.py"
+
+    - name: Ensure log file exists with root permissions
+      ansible.builtin.file:
+        path: /var/log/backup.log
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Change ssh_port
+  hosts: kvm_hosts
+  become: true
+  tasks:
+    - name: open new ssh_port
+      community.general.ufw:
+        rule: allow
+        port: "{{ ssh_port }}"
+        proto: tcp
+
+    - name: change ssh_port
+      lineinfile:
+        dest: "/etc/ssh/sshd_config"
+        regexp: "^#?Port"
+        line: "Port {{ ssh_port }}"
+
+    - name: add ssh rules
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          PermitRootLogin no
+          PasswordAuthentication yes
+          PubkeyAuthentication yes
+
+
+          Match User luffy
+              PasswordAuthentication no
+              AuthenticationMethods publickey
+        backup: yes
+
+    - name: run daemon-reload
+      shell: systemctl daemon-reload
+
+    - name: restart ssh socket
+      shell: systemctl restart ssh.socket
+
+    - name: switch ansible to the new por
+      set_fact:
+        ansible_port: "{{ ssh_port }}"
+
+    - name: Wait for the service to wake up
+      wait_for:
+        port: "{{ ssh_port }}"
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        search_regex: OpenSSH
+        delay: 2
+        timeout: 30
+      delegate_to: localhost
+      become: false
+
+    # - name: Reconnect to the new port
+    #   ping:
+    #   vars:
+    #     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+    # - name: close old ssh_port
+    #   community.general.ufw:
+    #     rule: deny
+    #     port: 22
+    #     proto: tcp
+
+  # handlers:
+  #   - name: systemd reload
+  #     ansible.builtin.systemd:
+  #       daemon_reload: yes
+
+  #   - name: restart ssh socket
+  #     ansible.builtin.service:
+  #       name: ssh.socket
+  #       state: restarted
