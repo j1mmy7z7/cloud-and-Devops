@@ -1,41 +1,40 @@
+# DEEP-IN-SYSTEM
 
-In this project you will learn how to administer a Linux server, You will set up security and network for a ubuntu server, and will install some popular services.
+- In this project you will learn how to administer a Linux server, You will set up security and network for a ubuntu server, and will install some popular services.
 
-Objectives
-Having a first experience in a ubuntu server setup.
 
-Discovering some network and security implementations in Linux.
+## Objectives
+- Having a first experience in a ubuntu server setup.
 
-Discovering some popular services in Linux.
+- Discovering some network and security implementations in Linux.
 
-Advice
-Read the entire project before starting implementation!
+- Discovering some popular services in Linux.
 
-Try to understand all the commands that you will use in your setup.
+## Advice
+- Read the entire project before starting implementation!
+- Try to understand all the commands that you will use in your setup.
+- Save any command you entered, it will be useful if you want to reinstall the server or do some debugging.
+- Create a backup file for each config file you will modify, this will be useful if you broke the config.
 
-Save any command you entered, it will be useful if you want to reinstall the server or do some debugging.
+- In this project we have put some passwords and private keys exposed, It is not recommended to do this in any way! And don't use these passwords and private keys outside this learning project!
 
-Create a backup file for each config file you will modify, this will be useful if you broke the config.
+## Resources
+1. Ubuntu Server Setup Ubuntu Server Installation Guide - Ubuntu Official VM installation, partitioning, basic configuration
 
-In this project we have put some passwords and private keys exposed, It is not recommended to do this in any way! And don't use these passwords and private keys outside this learning project!
+2. System Administration Basics Ubuntu Server Guide - Ubuntu Official User management, SSH, firewall, services
 
-Resources
-Ubuntu Server Setup Ubuntu Server Installation Guide - Ubuntu Official VM installation, partitioning, basic configuration
+3. MySQL Database Setup MySQL Installation on Ubuntu - MySQL Official Database installation and security configuration
 
-System Administration Basics Ubuntu Server Guide - Ubuntu Official User management, SSH, firewall, services
+4. WordPress Installation WordPress Ubuntu Installation - WordPress Official Web server setup and WordPress configuration
 
-MySQL Database Setup MySQL Installation on Ubuntu - MySQL Official Database installation and security configuration
-
-WordPress Installation WordPress Ubuntu Installation - WordPress Official Web server setup and WordPress configuration
-
-Command Line Prerequisites
+## Command Line Prerequisites
 Essential Commands:
 
 sudo, systemctl, apt install, nano, ssh-keygen - System administration basics
 
 Ubuntu Command Line Tutorial - Ubuntu Official
 
-Instructions
+## Instructions
 The Virtual Machine Part:
 Install a ubuntu server's latest LTS as a virtual machine.
 
@@ -47,26 +46,27 @@ Your username must be your login name.
 
 You have to set your hostname with the format of {username}-host, if your login is potato, then your hostname must be potato-host.
 
-The Network Part:
+## The Network Part:
 Set a static private IP address, you are free to choose which netmask to use.
 
 You must be able to connect to the Internet!, you can test with:
-
-$> ping -c 5 google.com
+```
+ $> ping -c 5 google.com
+```
 You should not have any internet interface with dynamic ip assignment.
 
-The Security Part:
+## The Security Part:
 You do not have to use the root user in your setup process! You won't need it when you have sudo. Sudo provides fine-grained access control. It grants elevated permissions to only a particular program that requires it. You know which program is running with elevated privileges, rather than working with a root shell (running every command with root privileges).
 
-You have to disable remote root login via ssh.
+- You have to disable remote root login via ssh.
 
-Change the ssh port to: 2222.
+- Change the ssh port to: 2222.
 
-Configure the Firewall, and close all incoming ports, only used ports must be opened.
+- Configure the Firewall, and close all incoming ports, only used ports must be opened.
 
-All open ports must be justified in the audit!
+- All open ports must be justified in the audit!
 
-User Management Part:
+## User Management Part:
 You have to create 2 users in your server as follows:
 
 1- luffy:
@@ -91,12 +91,12 @@ sudoer: no
 
 You will use your custom password for the audit session!
 
-Services Part:
+## Services Part:
 Install an FTP server and create a user nami. The user nami can access via FTP only to /backup with read-only access. nami user password: Use your custom password
 
 You will use your custom password for the audit session! Don't enable anonymous access! This will be risky!
 
-The Database Part:
+## The Database Part:
 You have to install MySQL Server
 
 Disable the remote connection to the root user.
@@ -107,7 +107,7 @@ You must create a MySQL user, which has the only required access to the WordPres
 
 Don't use the root user in your WordPress website!
 
-WordPress Part:
+## WordPress Part:
 You have to install WordPress
 
 WordPress must be in your web server root directory: http://{host}/
@@ -116,7 +116,7 @@ Your WordPress must work in a normal way, try to post something or create anothe
 
 The configuration file must not be public accessible!, try http://{host}/wp-config.php
 
-Backup Part:
+## Backup Part:
 Backups protect against human errors, hardware failure, virus attacks, power failures, and natural disasters. Backups can help save time and money if these failures occur.
 
 In this exercise, you will set up a simple backup method by using cron jobs.
@@ -130,4 +130,3 @@ The backup file name must contain the creation date.
 You must add a line to a log file (/var/log/backup.log) This line should contain a message informing you that the backup was successful and the timing of the backup.
 
 Your backup files must be downloadable from the nami FTP user.
-
