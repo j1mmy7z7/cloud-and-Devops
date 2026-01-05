@@ -1,0 +1,3 @@
+[submodule "crud-master"]
+	path = crud-master
+	url = ./crud-master/
