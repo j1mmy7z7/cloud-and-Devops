@@ -1,8 +1,29 @@
-# Cloud and devops
-this repo is a sub-module that points to the projects related to my cloud and devops journey
+# Cloud and DevOps
+This repository tracks my progress through various Cloud and DevOps projects. It uses Git Submodules to organize individual project implementations.
 
-* For Deep-in-net [see](https://github.com/01-edu/public/tree/master/subjects/devops/deep-in-net).
-* For Deep-in-system [see](https://github.com/01-edu/public/tree/master/subjects/devops/deep-in-system)
-* For crud-master [see](https://github.com/01-edu/public/tree/master/subjects/devops/crud-master-py)
-* for play-with-containers [see](https://github.com/01-edu/public/tree/master/subjects/devops/play-with-containers)
-* for orcherstrator [see](https://github.com/01-edu/public/tree/master/subjects/devops/orcherstrator)
+### Projects & Requirements
+The links below point to the official project requirements and subject descriptions:
+
+*   **Deep-in-net**: [Subject Details](https://github.com/01-edu/public/tree/master/subjects/devops/deep-in-net)
+*   **Deep-in-system**: [Subject Details](https://github.com/01-edu/public/tree/master/subjects/devops/deep-in-system)
+*   **CRUD Master**: [Subject Details](https://github.com/01-edu/public/tree/master/subjects/devops/crud-master-py)
+*   **Play-with-containers**: [Subject Details](https://github.com/01-edu/public/tree/master/subjects/devops/play-with-containers)
+*   **Orchestrator**: [Subject Details](https://github.com/01-edu/public/tree/master/subjects/devops/orcherstrator)
+
+---
+
+### How to Clone
+To clone this repository along with all project submodules:
+```bash
+git clone --recurse-submodules <repo-url>
+```
+
+### How to Update
+If you have already cloned the repository and want to pull the latest changes for all submodules:
+```bash
+git pull --recurse-submodules
+```
+If you cloned without submodules and need to initialize them:
+```bash
+git submodule update --init --recursive
+```
