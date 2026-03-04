@@ -1,3 +1,9 @@
 [submodule "crud-master"]
 	path = crud-master
 	url = https://github.com/j1mmy7z7/crud-master.git
+[submodule "orchestrator"]
+	path = orchestrator
+	url = https://github.com/j1mmy7z7/orcherstrator.git
+[submodule "play-with-containers"]
+	path = play-with-containers
+	url = https://github.com/j1mmy7z7/play-with-containers.git
