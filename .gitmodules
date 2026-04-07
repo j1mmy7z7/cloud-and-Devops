@@ -7,3 +7,6 @@
 [submodule "play-with-containers"]
 	path = play-with-containers
 	url = https://github.com/j1mmy7z7/play-with-containers.git
+[submodule "cloud-design"]
+	path = cloud-design
+	url = https://github.com/j1mmy7z7/cloud-design.git
