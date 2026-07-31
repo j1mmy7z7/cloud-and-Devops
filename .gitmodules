@@ -10,3 +10,6 @@
 [submodule "cloud-design"]
 	path = cloud-design
 	url = https://github.com/j1mmy7z7/cloud-design.git
+[submodule "code-keeper"]
+	path = code-keeper
+	url = https://github.com/j1mmy7z7/code-keeper.git
